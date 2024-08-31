@@ -7,7 +7,7 @@ struct MinimalPairComponent {
 	let word: String
 }
 
-struct FPTAITextToSpeechResponse: Decodable {
+struct TTSResponse: Decodable {
 	let async: URL
 	let error: Int
 	let message, requestID: String
@@ -29,11 +29,14 @@ struct CreateNotes: AsyncParsableCommand {
 	@Argument(completion: .directory, transform: URL.init(fileURLWithPath:))
 	var mediaDirectory: URL
 
-
-	func downloadMissingAudioFiles(minimalPairComponents: [MinimalPairComponent]) async throws {
+	func downloadMissingAudioFiles(
+		minimalPairComponents: [MinimalPairComponent],
+		exportDirectory: URL
+	) async throws {
 		let jsonDecoder = JSONDecoder()
+		var ttsReponses = [(String, TTSResponse)]()
 		for minimalPairComponent in minimalPairComponents {
-			let filename = "tts-\(minimalPairComponent.word).mp3"
+			let filename = "tts-\(minimalPairComponent.word).wav"
 			let audioExists = FileManager.default.fileExists(
 				atPath: self.mediaDirectory
 					.appending(component: filename)
@@ -45,24 +48,43 @@ struct CreateNotes: AsyncParsableCommand {
 				request.setValue(self.apiKey, forHTTPHeaderField: "api-key")
 				request.setValue("0.5", forHTTPHeaderField: "speed")
 				request.setValue("banmai", forHTTPHeaderField: "voice")
+				request.setValue("wav", forHTTPHeaderField: "format")
 
 				let (responseData, response) = try await URLSession.shared.upload(
 					for: request,
 					from: Data(minimalPairComponent.word.utf8)
 				)
-
 				guard let httpResponse = response as? HTTPURLResponse,
 						(200...299).contains(httpResponse.statusCode) else {
 					print("Error getting \"\(minimalPairComponent.word)\"")
 					continue
 				}
-				let welcome = try jsonDecoder.decode(FPTAITextToSpeechResponse.self, from: responseData)
-				print(welcome.async)
+				ttsReponses.append(
+					(
+						filename,
+						try jsonDecoder.decode(TTSResponse.self, from: responseData)
+					)
+				)
 			}
 		}
-	}
-	func exportCSVFile(minimalPairComponents: [MinimalPairComponent]) throws {
 
+
+		for (filename, ttsResponse) in ttsReponses {
+			try await Task.sleep(for: .seconds(5))
+			let (localURL, response2) = try await URLSession.shared.download(from: ttsResponse.async)
+			guard let httpResponse = response2 as? HTTPURLResponse,
+					(200...299).contains(httpResponse.statusCode) else {
+				print("Error getting \(filename)")
+				continue
+			}
+			print(localURL)
+			try FileManager.default.moveItem(at: localURL, to: exportDirectory.appending(component: filename))
+		}
+	}
+	func exportCSVFile(
+		minimalPairComponents: [MinimalPairComponent],
+		exportDirectory: URL
+	) throws {
 		let csvContent = minimalPairComponents
 			.combinations(ofCount: 2)
 			.reduce("") { partialResult, minimalPair in
@@ -70,17 +92,10 @@ struct CreateNotes: AsyncParsableCommand {
 			}
 			.trimmingCharacters(in: .whitespacesAndNewlines)
 
-		let dateFormatter = DateFormatter()
-		dateFormatter.dateFormat = "YY-MM-dd-HH-mm-ss"
-
-		let exportDirectory = URL.desktopDirectory
-			.appending(component: "vietnamese-minimal-pairs", directoryHint: .isDirectory)
-			.appending(component: dateFormatter.string(from: .now), directoryHint: .isDirectory)
-
-		try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true)
 		try Data(csvContent.utf8)
 			.write(to: exportDirectory.appending(path: "notes").appendingPathExtension("csv"))
 	}
+
 	mutating func run() async throws {
 		let minimalPairComponents = try String(contentsOf: self.minimalPairComponentsFile)
 			.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -90,16 +105,27 @@ struct CreateNotes: AsyncParsableCommand {
 					.trimmingCharacters(in: .whitespacesAndNewlines)
 					.split(separator: "|")
 				return MinimalPairComponent(
-					distinctiveFeature: trimmedLine[0].trimmingCharacters(in: .whitespaces),
-					word: trimmedLine[1].trimmingCharacters(in: .whitespaces)
+					distinctiveFeature: trimmedLine[0].trimmingCharacters(in: .whitespaces).lowercased(),
+					word: trimmedLine[1].trimmingCharacters(in: .whitespaces).lowercased()
 				)
 			}
 			.sorted { $0.word < $1.word }
 
+		let dateFormatter = DateFormatter()
+		dateFormatter.dateFormat = "YY-MM-dd-HH-mm-ss"
+
+		let exportDirectory = URL.desktopDirectory
+			.appending(component: "vietnamese-minimal-pairs", directoryHint: .isDirectory)
+			.appending(component: dateFormatter.string(from: .now), directoryHint: .isDirectory)
+		try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true)
 		try await downloadMissingAudioFiles(
-			minimalPairComponents: minimalPairComponents
+			minimalPairComponents: minimalPairComponents,
+			exportDirectory: exportDirectory
 		)
-		try exportCSVFile(minimalPairComponents: minimalPairComponents)
+		try exportCSVFile(
+			minimalPairComponents: minimalPairComponents,
+			exportDirectory: exportDirectory
+		)
 	}
 }
 

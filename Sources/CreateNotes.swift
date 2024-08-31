@@ -43,7 +43,7 @@ struct CreateNotes: AsyncParsableCommand {
 		let inputFilePathsFilePath = inputFilePathsFileURL.path()
 		let inputFilePathsFileContent = inputFilePaths.map { "file '\($0)'" }.joined(separator: "\n")
 		try inputFilePathsFileContent.write(toFile: inputFilePathsFilePath, atomically: true, encoding: .utf8)
-		let temporaryOutputFileURL = URL.currentDirectory().appending(path: "output.mp3", directoryHint: .notDirectory)
+		let temporaryOutputFileURL = URL.currentDirectory().appending(path: "output.wav", directoryHint: .notDirectory)
 		let process = Process()
 		process.launchPath = "/usr/bin/env"
 		process.arguments = [

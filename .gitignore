@@ -1,7 +1,4 @@
+/.idea/
+/out/
+/service-account.json
 .DS_Store
-/.build
-/Packages
-xcuserdata/
-DerivedData/
-.swiftpm/
-.netrc

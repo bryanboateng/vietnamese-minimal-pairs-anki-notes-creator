@@ -1,0 +1,4 @@
+argparse
+google-cloud-texttospeech
+pathlib
+pydub

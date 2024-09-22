@@ -5,6 +5,12 @@ import Foundation
 struct MinimalPairComponent {
 	let distinctiveFeature: String
 	let word: String
+
+	struct WordAudio {
+		let filename: String
+		let femaleAudioFileURL: URL
+		let maleAudioFileURL: URL
+	}
 }
 
 struct TTSResponse: Decodable {
@@ -20,14 +26,31 @@ struct TTSResponse: Decodable {
 
 @main
 struct CreateNotes: AsyncParsableCommand {
-	@Argument(completion: .file(), transform: URL.init(fileURLWithPath:))
-	var minimalPairComponentsFile: URL
-
 	@Argument()
 	var apiKey: String
 
 	@Argument(completion: .directory, transform: URL.init(fileURLWithPath:))
 	var mediaDirectory: URL
+
+	func speak(word: String, withVoice voice: String) async throws -> URL {
+		let jsonDecoder = JSONDecoder()
+		var request = URLRequest(url: URL(string: "https://api.fpt.ai/hmi/tts/v5")!)
+		request.httpMethod = "POST"
+		request.setValue(self.apiKey, forHTTPHeaderField: "api-key")
+		request.setValue("-1", forHTTPHeaderField: "speed")
+		request.setValue(voice, forHTTPHeaderField: "voice")
+		request.setValue("wav", forHTTPHeaderField: "format")
+
+		let (responseData, response) = try await URLSession.shared.upload(
+			for: request,
+			from: Data(word.utf8)
+		)
+		let httpResponse = response as! HTTPURLResponse
+		if !(200...299).contains(httpResponse.statusCode) {
+			fatalError()
+		}
+		return try jsonDecoder.decode(TTSResponse.self, from: responseData).async
+	}
 
 	func createSilence(filePath: String) throws {
 		let silenceCmd = "ffmpeg -f lavfi -i anullsrc=r=16000:cl=mono -t \(0.5) \(filePath)"
@@ -36,6 +59,15 @@ struct CreateNotes: AsyncParsableCommand {
 		process.arguments = ["bash", "-c", silenceCmd]
 		process.launch()
 		process.waitUntilExit()
+	}
+
+	func downloadFile(at remoteURL: URL) async throws -> URL {
+		let (localURL, response) = try await URLSession.shared.download(from: remoteURL)
+		let httpResponse = response as! HTTPURLResponse
+		if !(200...299).contains(httpResponse.statusCode) {
+			fatalError()
+		}
+		return localURL
 	}
 
 	func concatenateAudioFiles(inputFilePaths: [String], outputFileURL finalOutputFileURL: URL) throws {
@@ -62,36 +94,22 @@ struct CreateNotes: AsyncParsableCommand {
 		minimalPairComponents: [MinimalPairComponent],
 		exportDirectory: URL
 	) async throws {
-		let jsonDecoder = JSONDecoder()
-		var ttsReponses = [(String, TTSResponse)]()
+		var wordAudios = [MinimalPairComponent.WordAudio]()
 		for minimalPairComponent in minimalPairComponents {
-			let filename = "tts-\(minimalPairComponent.word).wav"
+			let combinedAudioFilename = "tts-\(minimalPairComponent.word).wav"
 			let audioExists = FileManager.default.fileExists(
 				atPath: self.mediaDirectory
-					.appending(component: filename)
+					.appending(component: combinedAudioFilename)
 					.path()
 			)
 			if !audioExists {
-				var request = URLRequest(url: URL(string: "https://api.fpt.ai/hmi/tts/v5")!)
-				request.httpMethod = "POST"
-				request.setValue(self.apiKey, forHTTPHeaderField: "api-key")
-				request.setValue("0.5", forHTTPHeaderField: "speed")
-				request.setValue("banmai", forHTTPHeaderField: "voice")
-				request.setValue("wav", forHTTPHeaderField: "format")
-
-				let (responseData, response) = try await URLSession.shared.upload(
-					for: request,
-					from: Data(minimalPairComponent.word.utf8)
-				)
-				guard let httpResponse = response as? HTTPURLResponse,
-						(200...299).contains(httpResponse.statusCode) else {
-					print("Error getting \"\(minimalPairComponent.word)\"")
-					continue
-				}
-				ttsReponses.append(
-					(
-						filename,
-						try jsonDecoder.decode(TTSResponse.self, from: responseData)
+				let femaleAudioFileURL = try await speak(word: minimalPairComponent.word, withVoice: "banmai")
+				let maleAudioFileURL = try await speak(word: minimalPairComponent.word, withVoice: "leminh")
+				wordAudios.append(
+					MinimalPairComponent.WordAudio (
+						filename: combinedAudioFilename,
+						femaleAudioFileURL: femaleAudioFileURL,
+						maleAudioFileURL: maleAudioFileURL
 					)
 				)
 			}
@@ -100,30 +118,24 @@ struct CreateNotes: AsyncParsableCommand {
 		let silenceFileURL = URL.currentDirectory().appending(path: "silence.wav")
 		let silenceFilePath = silenceFileURL.path()
 		try createSilence(filePath: silenceFilePath)
-		for (filename, ttsResponse) in ttsReponses {
+		for wordAudio in wordAudios {
 			try await Task.sleep(for: .seconds(1))
-			let (localURL, response2) = try await URLSession.shared.download(from: ttsResponse.async)
-			guard let httpResponse = response2 as? HTTPURLResponse,
-					(200...299).contains(httpResponse.statusCode) else {
-				print("Error getting \(filename)")
-				continue
-			}
-			let femaleWavPath = localURL.path()
-			let maleWavPath = localURL.path()
+			let femaleAudioFilePath = try await downloadFile(at: wordAudio.femaleAudioFileURL).path()
+			let maleAudioFilePath = try await downloadFile(at: wordAudio.maleAudioFileURL).path()
 
 			let inputFilePaths = [
-				femaleWavPath,
+				femaleAudioFilePath,
 				silenceFilePath,
-				maleWavPath,
+				maleAudioFilePath,
 				silenceFilePath,
-				femaleWavPath,
+				femaleAudioFilePath,
 				silenceFilePath,
-				maleWavPath
+				maleAudioFilePath
 			]
 
 			try concatenateAudioFiles(
 				inputFilePaths: inputFilePaths,
-				outputFileURL:  exportDirectory.appending(component: filename)
+				outputFileURL:  exportDirectory.appending(component: wordAudio.filename)
 			)
 		}
 		try FileManager.default.removeItem(at: silenceFileURL)
@@ -145,25 +157,27 @@ struct CreateNotes: AsyncParsableCommand {
 	}
 
 	mutating func run() async throws {
-		let minimalPairComponents = try String(contentsOf: self.minimalPairComponentsFile)
+		let mainDirectoryURL = URL.desktopDirectory
+			.appending(component: "vietnamese-minimal-pairs", directoryHint: .isDirectory)
+		let minimalPairComponents = try String(contentsOf: mainDirectoryURL.appending(component: "minimal-pair-components.csv"))
 			.trimmingCharacters(in: .whitespacesAndNewlines)
 			.split(separator: "\n")
 			.map { line in
 				let trimmedLine = line
 					.trimmingCharacters(in: .whitespacesAndNewlines)
-					.split(separator: "|")
+					.split(separator: ";")
 				return MinimalPairComponent(
 					distinctiveFeature: trimmedLine[0].trimmingCharacters(in: .whitespaces).lowercased(),
 					word: trimmedLine[1].trimmingCharacters(in: .whitespaces).lowercased()
 				)
 			}
+			.uniqued(on: \.word)
 			.sorted { $0.word < $1.word }
 
 		let dateFormatter = DateFormatter()
 		dateFormatter.dateFormat = "YY-MM-dd-HH-mm-ss"
 
-		let exportDirectory = URL.desktopDirectory
-			.appending(component: "vietnamese-minimal-pairs", directoryHint: .isDirectory)
+		let exportDirectory = mainDirectoryURL
 			.appending(component: dateFormatter.string(from: .now), directoryHint: .isDirectory)
 		try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true)
 		try await downloadMissingAudioFiles(

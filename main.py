@@ -8,24 +8,21 @@ from google.cloud import texttospeech
 from tqdm import tqdm
 
 
-def remove_duplicates(input_list):
-    unique_items = []
+def remove_duplicates(input_list: list[str]):
+    unique_items: list[str] = []
     for item in input_list:
         if item not in unique_items:
             unique_items.append(item)
     return unique_items
 
 
-def create_notes(texts: list[str]):
+def create_notes(text_groups: list[list[str]]):
     output_directory_path = Path("./out-notes")
     output_directory_path.mkdir(parents=True, exist_ok=True)
-    with (
-        output_directory_path
-        / f"note-{datetime.now().strftime('%Y-%m-%d-%Hh%Mm%Ss')}.csv"
-    ).open(mode="w") as file:
-        writer = csv.writer(file, delimiter=";")
-        writer.writerows(
-            [
+    notes = []
+    for group in text_groups:
+        for first, second in itertools.combinations(group, 2):
+            notes.append(
                 [
                     f"[sound:tts-viet-{first}-female.wav]",
                     f"[sound:tts-viet-{first}-male.wav]",
@@ -34,9 +31,14 @@ def create_notes(texts: list[str]):
                     f"[sound:tts-viet-{second}-male.wav]",
                     second,
                 ]
-                for first, second in itertools.combinations(texts, 2)
-            ]
-        )
+            )
+
+    with (
+        output_directory_path
+        / f"note-{datetime.now().strftime('%Y-%m-%d-%Hh%Mm%Ss')}.csv"
+    ).open(mode="w") as file:
+        writer = csv.writer(file, delimiter=";")
+        writer.writerows(notes)
 
 
 def synthesize_repeated_text(
@@ -90,7 +92,6 @@ def text_to_speech(texts: list[str], anki_media_directory_path: Path):
 
 
 def main():
-    texts = Path("in.txt").read_text(encoding="utf-8").splitlines()
     argument_parser = argparse.ArgumentParser(
         prog="Vietnamese Minimal Pairs Audio Creator"
     )
@@ -104,13 +105,17 @@ def main():
             "aàáạảãăằắặẳẵâầấậẩẫbcdđeèéẹẻẽêềếệểễghiìíịỉĩklmnoòóọỏõôồốộổỗơờớợởỡpqrstuùúụủũưừứựửữvxyỳýỵỷỹ"
         )
     }
-    processed_texts = sorted(
-        remove_duplicates([text.strip().lower() for text in texts]),
-        key=lambda string: [character_order[character] for character in string],
-    )
-    create_notes(texts=processed_texts)
+    text_groups = [
+        sorted(
+            remove_duplicates([text.strip().lower() for text in group.splitlines()]),
+            key=lambda string: [character_order[character] for character in string],
+        )
+        for group in (Path("in.txt").read_text(encoding="utf-8").split("\n\n"))
+    ]
+    create_notes(text_groups=text_groups)
     text_to_speech(
-        texts=processed_texts, anki_media_directory_path=args.anki_media_directory_path
+        texts=itertools.chain.from_iterable(text_groups),
+        anki_media_directory_path=args.anki_media_directory_path,
     )
 
 

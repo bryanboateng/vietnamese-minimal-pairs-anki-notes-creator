@@ -115,7 +115,7 @@ def main():
     ]
     create_notes(text_groups=text_groups)
     text_to_speech(
-        texts=itertools.chain.from_iterable(text_groups),
+        texts=list(itertools.chain.from_iterable(text_groups)),
         anki_media_directory_path=args.anki_media_directory_path,
     )
 

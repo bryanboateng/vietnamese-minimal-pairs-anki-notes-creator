@@ -24,6 +24,7 @@ def create_notes(text_groups: list[list[str]]):
         for first, second in itertools.combinations(group, 2):
             notes.append(
                 [
+                    f"{first},{second}",
                     f"[sound:tts-viet-{first}-female.wav]",
                     f"[sound:tts-viet-{first}-male.wav]",
                     first,

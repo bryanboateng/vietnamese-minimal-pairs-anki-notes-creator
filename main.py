@@ -1,4 +1,7 @@
 import argparse
+import csv
+import itertools
+from datetime import datetime
 from pathlib import Path
 
 from google.cloud import texttospeech
@@ -55,6 +58,29 @@ def text_to_speech(texts: list[str], anki_media_directory_path: Path):
         )
 
 
+def create_notes(texts: list[str]):
+    output_directory_path = Path("./out-notes")
+    output_directory_path.mkdir(parents=True, exist_ok=True)
+    with (
+        output_directory_path
+        / f"note-{datetime.now().strftime('%Y-%m-%d-%Hh%Mm%Ss')}.csv"
+    ).open(mode="w") as file:
+        writer = csv.writer(file, delimiter=";")
+        writer.writerows(
+            [
+                [
+                    f"[sound:tts-viet-{first}-female.wav]",
+                    f"[sound:tts-viet-{first}-male.wav]",
+                    first,
+                    f"[sound:tts-viet-{second}-female.wav]",
+                    f"[sound:tts-viet-{second}-male.wav]",
+                    second,
+                ]
+                for first, second in itertools.combinations(texts, 2)
+            ]
+        )
+
+
 def main():
     texts = Path("in.txt").read_text(encoding="utf-8").splitlines()
     argument_parser = argparse.ArgumentParser(
@@ -64,8 +90,19 @@ def main():
         "anki_media_directory_path", metavar="anki-media-directory-path", type=Path
     )
     args = argument_parser.parse_args()
+    character_order = {
+        character: index
+        for index, character in enumerate(
+            "aàáạảãăằắặẳẵâầấậẩẫbcdđeèéẹẻẽêềếệểễghiìíịỉĩklmnoòóọỏõôồốộổỗơờớợởỡpqrstuùúụủũưừứựửữvxyỳýỵỷỹ"
+        )
+    }
+    processed_texts = sorted(
+        [text.strip().lower() for text in texts],
+        key=lambda string: [character_order[character] for character in string],
+    )
+    create_notes(texts=processed_texts)
     text_to_speech(
-        texts=texts, anki_media_directory_path=args.anki_media_directory_path
+        texts=processed_texts, anki_media_directory_path=args.anki_media_directory_path
     )
 
 

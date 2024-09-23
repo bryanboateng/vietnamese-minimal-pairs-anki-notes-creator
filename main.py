@@ -29,8 +29,8 @@ def synthesize_repeated_text(
                 texttospeech.AudioConfig(
                     audio_encoding=texttospeech.AudioEncoding.LINEAR16,
                     effects_profile_id=["small-bluetooth-speaker-class-device"],
-                    speaking_rate=0,
-                    pitch=1.25,
+                    speaking_rate=1.4,
+                    pitch=0,
                 )
             ),
         )

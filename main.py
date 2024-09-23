@@ -8,6 +8,14 @@ from google.cloud import texttospeech
 from tqdm import tqdm
 
 
+def remove_duplicates(input_list):
+    unique_items = []
+    for item in input_list:
+        if item not in unique_items:
+            unique_items.append(item)
+    return unique_items
+
+
 def create_notes(texts: list[str]):
     output_directory_path = Path("./out-notes")
     output_directory_path.mkdir(parents=True, exist_ok=True)
@@ -97,7 +105,7 @@ def main():
         )
     }
     processed_texts = sorted(
-        [text.strip().lower() for text in texts],
+        remove_duplicates([text.strip().lower() for text in texts]),
         key=lambda string: [character_order[character] for character in string],
     )
     create_notes(texts=processed_texts)

@@ -8,6 +8,29 @@ from google.cloud import texttospeech
 from tqdm import tqdm
 
 
+def create_notes(texts: list[str]):
+    output_directory_path = Path("./out-notes")
+    output_directory_path.mkdir(parents=True, exist_ok=True)
+    with (
+        output_directory_path
+        / f"note-{datetime.now().strftime('%Y-%m-%d-%Hh%Mm%Ss')}.csv"
+    ).open(mode="w") as file:
+        writer = csv.writer(file, delimiter=";")
+        writer.writerows(
+            [
+                [
+                    f"[sound:tts-viet-{first}-female.wav]",
+                    f"[sound:tts-viet-{first}-male.wav]",
+                    first,
+                    f"[sound:tts-viet-{second}-female.wav]",
+                    f"[sound:tts-viet-{second}-male.wav]",
+                    second,
+                ]
+                for first, second in itertools.combinations(texts, 2)
+            ]
+        )
+
+
 def synthesize_repeated_text(
     text: str,
     voice_is_female: bool,
@@ -55,29 +78,6 @@ def text_to_speech(texts: list[str], anki_media_directory_path: Path):
             voice_is_female=False,
             client=client,
             out_directory_path=anki_media_directory_path,
-        )
-
-
-def create_notes(texts: list[str]):
-    output_directory_path = Path("./out-notes")
-    output_directory_path.mkdir(parents=True, exist_ok=True)
-    with (
-        output_directory_path
-        / f"note-{datetime.now().strftime('%Y-%m-%d-%Hh%Mm%Ss')}.csv"
-    ).open(mode="w") as file:
-        writer = csv.writer(file, delimiter=";")
-        writer.writerows(
-            [
-                [
-                    f"[sound:tts-viet-{first}-female.wav]",
-                    f"[sound:tts-viet-{first}-male.wav]",
-                    first,
-                    f"[sound:tts-viet-{second}-female.wav]",
-                    f"[sound:tts-viet-{second}-male.wav]",
-                    second,
-                ]
-                for first, second in itertools.combinations(texts, 2)
-            ]
         )
 
 

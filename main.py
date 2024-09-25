@@ -94,7 +94,7 @@ def text_to_speech(texts: list[str], anki_media_directory_path: Path):
 
 def main():
     argument_parser = argparse.ArgumentParser(
-        prog="Vietnamese Minimal Pairs Audio Creator"
+        prog="Vietnamese Minimal Pairs Notes Creator"
     )
     argument_parser.add_argument(
         "anki_media_directory_path", metavar="anki-media-directory-path", type=Path

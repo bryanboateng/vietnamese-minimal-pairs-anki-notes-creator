@@ -1,7 +1,7 @@
 # Vietnamese Minimal Pairs Anki Notes Creator
 
 
-This is a tool designed to assist [me](github.com/bryanboateng) in creating audio materials for practicing Vietnamese minimal pairs in Anki.
+This is a tool designed to assist me in creating audio materials for practicing Vietnamese minimal pairs in Anki.
 Minimal pairs are pairs of words or phrases in a language that differ by only a single sound, which can help in distinguishing similar sounds.
 E.g. the Vietnamese words *cũng* and *cúng*.
 

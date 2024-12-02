@@ -1,11 +1,10 @@
 # Vietnamese Minimal Pairs Anki Notes Creator
 
-
-This is a tool designed to assist me in creating audio materials for practicing Vietnamese minimal pairs in Anki.
+This is a tool designed to assist in creating audio materials for practicing Vietnamese minimal pairs in Anki.
 Minimal pairs are pairs of words or phrases in a language that differ by only a single sound, which can help in distinguishing similar sounds.
-E.g. the Vietnamese words *cũng* and *cúng*.
+E.g., the Vietnamese words *cũng* and *cúng*.
 
-This tool automates the process of generating audio files using Google Cloud Text-to-Speech, and creating accompanying notes for easy import into Anki.
+This tool automates the process of generating audio files using Google Cloud Text-to-Speech and creating accompanying notes for easy import into Anki.
 
 ## Install Dependencies
 
@@ -37,29 +36,30 @@ pip install -r requirements.txt
 
    - Create an `in.txt` file in the project root directory.
    - Organize your minimal pairs, separating groups with two newline characters (`\n\n`).
-   - Example format:
-        ```text
-        bà
-        ba
-        bá
+   - **Example format**:
 
-        cà
-        ca
-        cá
-        ```
+     ```text
+     bà
+     ba
+     bá
+
+     cà
+     ca
+     cá
+     ```
 
 ## Usage
 
-Run the script using Python, specifying the path to your Anki media directory.
+Run the script using Python, specifying the path to your Anki media directory:
 
 ```bash
-python main.py /path/to/anki/media
+python minimal-pairs.py /path/to/anki/media
 ```
 
 **Example:**
 
 ```bash
-python main.py "~/Anki/User\ 1\ collection.media"
+python minimal-pairs.py "~/Anki/User 1 collection.media"
 ```
 
 ## Output
@@ -68,21 +68,63 @@ Upon execution, the script generates the following:
 
 1. **Audio Files**: For each unique text, two `.wav` files are created (one female and one male voice) in the specified Anki media directory.
 
-   - Naming convention:
-     - Female voice: `tts-viet-{text}-female.wav`
-     - Male voice: `tts-viet-{text}-male.wav`
+   - **Naming Convention**:
+
+     - **Female Voice**: `google-tts_vi-VN-Neural2-A_{text}, {text}.wav`
+     - **Male Voice**: `google-tts_vi-VN-Neural2-D_{text}, {text}.wav`
+
+     **Note:** The `{text}, {text}` part in the filename indicates that the audio file contains the text repeated twice, separated by a comma.
 
 2. **Notes CSV**: A CSV file containing combinations of minimal pairs with references to their respective audio files.
-This file is saved in the `out-notes` directory with a timestamped filename (e.g., `note-2024-04-27-14h30m00s.csv`).
+
+   - The CSV file is saved in the `out/notes` directory with a timestamped filename (e.g., `note-2024-04-27-14h30m00s.csv`).
 
    - **CSV Structure**:
-     - Each row contains:
-       - Unique Key: Combination of two texts (e.g., `bà,ba`)
-       - Reference to the female audio of the first text
-       - Reference to the male audio of the first text
-       - First text
-       - Reference to the female audio of the second text
-       - Reference to the male audio of the second text
-       - Second text
 
-    These notes can then be imported into Anki.
+     Each row contains:
+
+     - **Unique Key**: Combination of two texts (e.g., `bà,ba`)
+     - **Female Audio of First Text**: `[sound:google-tts_vi-VN-Neural2-A_{first text}, {first text}.wav]`
+     - **Male Audio of First Text**: `[sound:google-tts_vi-VN-Neural2-D_{first text}, {first text}.wav]`
+     - **First Text**
+     - **Female Audio of Second Text**: `[sound:google-tts_vi-VN-Neural2-A_{second text}, {second text}.wav]`
+     - **Male Audio of Second Text**: `[sound:google-tts_vi-VN-Neural2-D_{second text}, {second text}.wav]`
+     - **Second Text**
+
+   These notes can then be imported into Anki for study.
+
+## Additional Tool: Standalone Text-to-Speech Script
+
+The `tts.py` script allows you to generate audio files for individual texts.
+
+### Usage
+
+Run the script with the desired text. Optionally, specify the voice gender.
+
+```bash
+python tts.py "your text here" [--gender GENDER]
+```
+
+- **Arguments**:
+  - `text`: The text to synthesize.
+  - `--gender`: Specify the voice gender (0 for male, 1 for female). If not provided, a random gender is chosen.
+
+**Example:**
+
+```bash
+python tts.py "xin chào" --gender 1
+```
+
+This generates an audio file for "xin chào" using the female voice.
+
+### Output
+
+- The audio file is saved in the `out/standalone-audio` directory.
+- **Naming Convention**: `google-tts_{voice_name}_{text}.wav`
+
+## Notes
+
+- Ensure that the `GOOGLE_APPLICATION_CREDENTIALS` environment variable is correctly set before running the scripts.
+- The generated audio files are designed to be compatible with Anki's media folder and note format.
+- If you modify the input file or the script, rerun the script to update the audio files and notes.
+- The scripts use specific Google Cloud voices (`vi-VN-Neural2-A` for female and `vi-VN-Neural2-D` for male) to maintain consistency.

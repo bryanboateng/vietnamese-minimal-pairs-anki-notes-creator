@@ -7,7 +7,7 @@ from pathlib import Path
 from google.cloud import texttospeech
 from tqdm import tqdm
 
-from tts import synthesize_speech
+from scripts.tts import synthesize_speech
 
 
 def remove_duplicates(input_list: list[str]):
@@ -19,7 +19,7 @@ def remove_duplicates(input_list: list[str]):
 
 
 def create_notes(text_groups: list[list[str]]):
-    output_directory_path = Path("./out") / "notes"
+    output_directory_path = Path("../out") / "notes"
     output_directory_path.mkdir(parents=True, exist_ok=True)
     notes = []
     for group in text_groups:
@@ -81,7 +81,7 @@ def main():
             remove_duplicates([text.strip().lower() for text in group.splitlines()]),
             key=lambda string: [character_order[character] for character in string],
         )
-        for group in (Path("in.txt").read_text(encoding="utf-8").split("\n\n"))
+        for group in (Path("../in.txt").read_text(encoding="utf-8").split("\n\n"))
     ]
     create_notes(text_groups=text_groups)
     text_to_speech(

@@ -48,7 +48,7 @@ def main():
     arguments = argument_parser.parse_args()
     gender = arguments.gender if arguments.gender is not None else random.choice([0, 1])
 
-    output_directory_path = Path("./out") / "standalone-audio"
+    output_directory_path = Path("../out") / "standalone-audio"
     output_directory_path.mkdir(parents=True, exist_ok=True)
     synthesize_speech(
         text=arguments.text.strip(),

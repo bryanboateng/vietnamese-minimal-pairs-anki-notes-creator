@@ -9,7 +9,13 @@ from PIL import Image, ImageDraw, ImageFile, ImageSequence
 
 class WordType(Enum):
     ADJECTIVE = "adjective"
+    ADVERB = "adverb"
+    ARTICLE = "article"
+    CONJUNCTION = "conjunction"
+    INTERJECTION = "interjection"
     NOUN = "noun"
+    PREPOSITION = "preposition"
+    PRONOUN = "pronoun"
     VERB = "verb"
 
 
@@ -106,49 +112,214 @@ def process_image(image: Image.Image, word_type: WordType):
 
     draw = ImageDraw.Draw(image)
 
+    # Montessori grammar symbols, sized relative to the noun triangle and
+    # coloured with the Apple HIG system colours (light appearance).
+    # https://www.montessorialbum.com/montessori/index.php/Grammar_Symbols
+    noun_side_length = (size * 2) / math.sqrt(3)
+
     match word_type:
         case WordType.ADJECTIVE:
-            draw_triangle(x=anchor_x, y=anchor_y, height=size, draw=draw)
+            draw_triangle(
+                x=anchor_x,
+                y=anchor_y,
+                base=noun_side_length * 2 / 3,
+                fill=(0, 136, 255, 255),
+                draw=draw,
+            )
+        case WordType.ADVERB:
+            draw_circle(
+                x=anchor_x,
+                y=anchor_y,
+                diameter=noun_side_length * 0.5,
+                fill=(255, 141, 40, 255),
+                draw=draw,
+            )
+        case WordType.ARTICLE:
+            draw_triangle(
+                x=anchor_x,
+                y=anchor_y,
+                base=noun_side_length * 0.47,
+                fill=(0, 192, 232, 255),
+                draw=draw,
+            )
+        case WordType.CONJUNCTION:
+            draw_bar(
+                x=anchor_x,
+                y=anchor_y,
+                width=noun_side_length * 0.5,
+                height=noun_side_length * 0.13,
+                fill=(255, 45, 85, 255),
+                draw=draw,
+            )
+        case WordType.INTERJECTION:
+            draw_keyhole(
+                x=anchor_x,
+                y=anchor_y,
+                width=noun_side_length * 0.28,
+                fill=(255, 204, 0, 255),
+                draw=draw,
+            )
         case WordType.NOUN:
-            draw_square(x=anchor_x, y=anchor_y, size=size, draw=draw)
+            draw_triangle(
+                x=anchor_x,
+                y=anchor_y,
+                base=noun_side_length,
+                fill=(0, 0, 0, 255),
+                draw=draw,
+            )
+        case WordType.PREPOSITION:
+            draw_crescent(
+                x=anchor_x,
+                y=anchor_y,
+                diameter=noun_side_length * 0.5,
+                fill=(52, 199, 89, 255),
+                draw=draw,
+            )
+        case WordType.PRONOUN:
+            draw_triangle(
+                x=anchor_x,
+                y=anchor_y,
+                base=noun_side_length * 0.62,
+                height=size,
+                fill=(203, 48, 224, 255),
+                draw=draw,
+            )
         case WordType.VERB:
-            draw_oval(x=anchor_x, y=anchor_y, height=size, draw=draw)
+            draw_circle(
+                x=anchor_x,
+                y=anchor_y,
+                diameter=noun_side_length,
+                fill=(255, 56, 60, 255),
+                draw=draw,
+            )
 
     return image
 
 
-def draw_triangle(x: float, y: float, height: float, draw: ImageDraw.ImageDraw):
-    side_length = (height * 2) / math.sqrt(3)
+def draw_triangle(
+    x: float,
+    y: float,
+    base: float,
+    fill: tuple[int, int, int, int],
+    draw: ImageDraw.ImageDraw,
+    height: float | None = None,
+):
+    """Draws an isosceles triangle, equilateral unless a height is given."""
+    if height is None:
+        height = base * math.sqrt(3) / 2
 
     draw.polygon(
         xy=[
             (x, y),
-            (x - side_length, y),
-            (x - side_length / 2, y - height),
+            (x - base, y),
+            (x - base / 2, y - height),
         ],
-        fill=(255, 204, 0, 255),
+        fill=fill,
     )
 
 
-def draw_square(x: float, y: float, size: float, draw: ImageDraw.ImageDraw):
-    draw.rectangle(
+def draw_circle(
+    x: float,
+    y: float,
+    diameter: float,
+    fill: tuple[int, int, int, int],
+    draw: ImageDraw.ImageDraw,
+):
+    draw.ellipse(
         xy=[
-            (x - size, y - size),
+            (x - diameter, y - diameter),
             (x, y),
         ],
-        fill=(0, 136, 255, 255),
+        fill=fill,
     )
 
 
-def draw_oval(x: float, y: float, height: float, draw: ImageDraw.ImageDraw):
-    width = height * 1.4
-    draw.ellipse(
+def draw_bar(
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    fill: tuple[int, int, int, int],
+    draw: ImageDraw.ImageDraw,
+):
+    draw.rectangle(
         xy=[
             (x - width, y - height),
             (x, y),
         ],
-        fill=(255, 56, 60, 255),
+        fill=fill,
     )
+
+
+def draw_keyhole(
+    x: float,
+    y: float,
+    width: float,
+    fill: tuple[int, int, int, int],
+    draw: ImageDraw.ImageDraw,
+):
+    """Draws an upside-down triangle whose tip ends in a circle."""
+    circle_diameter = width * 0.72
+    top = y - width * 1.75
+    center_x = x - width / 2
+    circle_center_y = y - circle_diameter / 2
+
+    draw.polygon(
+        xy=[
+            (x - width, top),
+            (x, top),
+            (center_x, circle_center_y),
+        ],
+        fill=fill,
+    )
+    draw.ellipse(
+        xy=[
+            (center_x - circle_diameter / 2, y - circle_diameter),
+            (center_x + circle_diameter / 2, y),
+        ],
+        fill=fill,
+    )
+
+
+def draw_crescent(
+    x: float,
+    y: float,
+    diameter: float,
+    fill: tuple[int, int, int, int],
+    draw: ImageDraw.ImageDraw,
+):
+    """Draws a crescent opening downwards: a circle with a same-sized circle
+    cut out slightly below it."""
+    radius = diameter / 2
+    offset = diameter * 0.24
+    center_x = x - radius
+    center_y = y - offset / 2
+
+    # Angle between the horizontal and the points where both circles intersect
+    angle = math.asin((offset / 2) / radius)
+    steps = 64
+
+    outer_arc = [
+        (
+            center_x + radius * math.cos(phi),
+            center_y - radius * math.sin(phi),
+        )
+        for phi in (
+            -angle + (math.pi + 2 * angle) * step / steps for step in range(steps + 1)
+        )
+    ]
+    inner_arc = [
+        (
+            center_x + radius * math.cos(phi),
+            center_y + offset - radius * math.sin(phi),
+        )
+        for phi in (
+            math.pi - angle - (math.pi - 2 * angle) * step / steps
+            for step in range(steps + 1)
+        )
+    ]
+
+    draw.polygon(xy=outer_arc + inner_arc, fill=fill)
 
 
 if __name__ == "__main__":
